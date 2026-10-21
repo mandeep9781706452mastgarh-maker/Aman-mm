@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prompt to Video</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter+Tight:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#0F0E0D;--surface:#1A1816;--line:#34302B;--text:#F4EFE8;--muted:#A89F94;--accent:#FF7A3D;--on-accent:#1A0E06}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter Tight',system-ui,sans-serif}
+main{max-width:480px;margin:0 auto;padding:40px 20px 120px;display:flex;flex-direction:column;gap:28px}
+.eyebrow{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{margin:8px 0 0;font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:44px;line-height:1.02}
+h2{margin:0;font-size:14px;font-weight:600;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:12px}
+textarea,input[type=password]{width:100%;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:16px;font:inherit;font-size:16px;line-height:1.45;resize:none}
+textarea::placeholder{color:#8F867B}
+button,.pick{font:inherit;cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.pill{flex:1;min-height:48px;border-radius:24px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:15px;font-weight:600}
+.pill[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.thumbs{display:flex;gap:12px;flex-wrap:wrap}
+.add{position:relative;width:84px;height:84px;border-radius:14px;border:1.5px dashed #6B635A;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#E5DDD2;font-size:13px;font-weight:500;cursor:pointer}
+.add input{position:absolute;width:1px;height:1px;opacity:0}
+.thumb{position:relative;width:84px;height:84px}
+.thumb img{width:84px;height:84px;object-fit:cover;border-radius:14px;display:block}
+.thumb button{position:absolute;top:-14px;right:-14px;width:44px;height:44px;border:0;background:transparent;display:flex;justify-content:flex-end;align-items:flex-start;padding:0}
+.thumb button span{width:24px;height:24px;border-radius:12px;background:var(--bg);border:1px solid #6B635A;color:var(--text);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
+.hint{font-size:13px;color:var(--muted);line-height:1.4}
+.cta{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid #24211E;padding:12px 20px 24px}
+.cta>div{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.go{width:100%;min-height:56px;border-radius:28px;border:0;background:var(--accent);color:var(--on-accent);font-size:17px;font-weight:600}
+.go:disabled{opacity:.4;cursor:not-allowed}
+.err{color:#FFB48F;font-size:14px;line-height:1.4}
+video{width:100%;max-height:70vh;border-radius:18px;background:#000;display:block}
+.sec{min-height:48px;border-radius:24px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:15px;font-weight:500;padding:0 20px;text-decoration:none;display:flex;align-items:center;justify-content:center}
+.working{display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0;text-align:center}
+.bar{width:100%;height:6px;border-radius:3px;background:#24211E;overflow:hidden}
+.bar i{display:block;height:100%;width:40%;background:var(--accent);border-radius:3px;animation:slide 1.4s ease-in-out infinite}
+@keyframes slide{0%{margin-left:-40%}100%{margin-left:100%}}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">AI video</div>
+    <h1>Describe it. Add photos. Get a video.</h1>
+  </header>
+
+  <div id="form" style="display:flex;flex-direction:column;gap:28px">
+    <section id="pwBox" hidden>
+      <h2>Password</h2>
+      <input type="password" id="pw" aria-label="Password" autocomplete="current-password">
+    </section>
+
+    <section>
+      <h2>Video prompt</h2>
+      <textarea id="prompt" rows="6" aria-label="Video prompt" placeholder="Describe the scene, the camera and the mood. Example: A young couple laughs on a rooftop at sunset, the camera slowly circles them, soft wind, he whispers 'I'm so glad it's you'."></textarea>
+      <p class="hint">Tip: describe what moves and what is said. The video includes sound and voices.</p>
+    </section>
+
+    <section>
+      <h2>Your photos <span class="hint">(optional, up to 3)</span></h2>
+      <div class="thumbs" id="thumbs">
+        <label class="add" id="addBtn">
+          <input type="file" id="file" accept="image/*" multiple aria-label="Add photos">
+          <span style="color:var(--accent);font-size:22px;line-height:1">+</span>
+          <span>Add</span>
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Format</h2>
+      <div class="row" id="aspect">
+        <button class="pill" data-v="9:16" aria-pressed="true">9:16 vertical</button>
+        <button class="pill" data-v="16:9" aria-pressed="false">16:9 wide</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Quality</h2>
+      <div class="row" id="res">
+        <button class="pill" data-v="720p" aria-pressed="true">720p</button>
+        <button class="pill" data-v="1080p" aria-pressed="false">1080p</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="working" class="working" hidden>
+    <div style="font-family:'Instrument Serif',Georgia,serif;font-size:34px;line-height:1.1">Making your video</div>
+    <div class="bar" aria-hidden="true"><i></i></div>
+    <div class="hint" id="elapsed">This usually takes a minute or two. Keep this page open.</div>
+  </div>
+
+  <div id="result" hidden style="display:flex;flex-direction:column;gap:16px">
+    <div class="eyebrow">Your video is ready</div>
+    <video id="player" controls playsinline></video>
+    <a class="go" id="dl" style="display:flex;align-items:center;justify-content:center;text-decoration:none" href="#">Save video</a>
+    <button class="sec" id="again">Make another</button>
+  </div>
+</main>
+
+<div class="cta" id="cta">
+  <div>
+    <div class="err" id="err" role="alert" hidden></div>
+    <button class="go" id="go" disabled>Make video</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var state = { photos: [], aspect: '9:16', res: '720p', pw: '' };
+  var $ = function (id) { return document.getElementById(id); };
+  var timer = null;
+
+  fetch('/api/config').then(function (r) { return r.json(); }).then(function (c) {
+    if (c.needsPassword) $('pwBox').hidden = false;
+    if (!c.hasKey) showErr('This server has no GEMINI_API_KEY yet. Add it, then reload.');
+  }).catch(function () {});
+
+  function showErr(m) { var e = $('err'); e.textContent = m; e.hidden = !m; }
+  function check() { $('go').disabled = !$('prompt').value.trim(); }
+  $('prompt').addEventListener('input', check);
+
+  function seg(id, key) {
+    $(id).addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      state[key] = b.dataset.v;
+      Array.prototype.forEach.call($(id).children, function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
+    });
+  }
+  seg('aspect', 'aspect'); seg('res', 'res');
+
+  function shrink(file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onerror = reject;
+      fr.onload = function () {
+        var im = new Image();
+        im.onerror = reject;
+        im.onload = function () {
+          var s = Math.min(1, 1280 / Math.max(im.width, im.height));
+          var c = document.createElement('canvas');
+          c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', 0.85));
+        };
+        im.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  function renderThumbs() {
+    var box = $('thumbs');
+    Array.prototype.slice.call(box.querySelectorAll('.thumb')).forEach(function (n) { n.remove(); });
+    state.photos.forEach(function (src, i) {
+      var d = document.createElement('div'); d.className = 'thumb';
+      var im = document.createElement('img'); im.src = src; im.alt = 'Your photo ' + (i + 1);
+      var b = document.createElement('button'); b.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+      var sp = document.createElement('span'); sp.textContent = '×'; b.appendChild(sp);
+      b.onclick = function () { state.photos.splice(i, 1); renderThumbs(); };
+      d.appendChild(im); d.appendChild(b); box.appendChild(d);
+    });
+    $('addBtn').hidden = state.photos.length >= 3;
+  }
+
+  $('file').addEventListener('change', function (e) {
+    var files = Array.prototype.slice.call(e.target.files).slice(0, 3 - state.photos.length);
+    Promise.all(files.map(shrink)).then(function (urls) {
+      state.photos = state.photos.concat(urls); renderThumbs();
+    }).catch(function () { showErr('One of those photos could not be read.'); });
+    e.target.value = '';
+  });
+
+  function headers() {
+    var h = { 'Content-Type': 'application/json' };
+    var p = $('pw').value; if (p) h['x-app-password'] = p;
+    return h;
+  }
+  function pq() { var p = $('pw').value; return p ? '&p=' + encodeURIComponent(p) : ''; }
+
+  function setScreen(name) {
+    $('form').hidden = name !== 'form';
+    $('working').hidden = name !== 'working';
+    $('result').hidden = name !== 'result';
+    $('cta').hidden = name !== 'form';
+  }
+
+  $('go').addEventListener('click', function () {
+    showErr('');
+    $('go').disabled = true;
+    fetch('/api/generate', {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ prompt: $('prompt').value, images: state.photos, aspect: state.aspect, resolution: state.res })
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) throw new Error(x.j.error || 'Could not start.');
+        setScreen('working');
+        poll(x.j.id);
+      }).catch(function (e) { showErr(e.message); check(); });
+  });
+
+  function poll(id) {
+    clearInterval(timer);
+    timer = setInterval(function () {
+      fetch('/api/jobs/' + id + '?x=1' + pq(), { headers: headers() })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          $('elapsed').textContent = 'Working for ' + (j.seconds || 0) + 's. Keep this page open.';
+          if (j.status === 'done') {
+            clearInterval(timer);
+            $('player').src = '/api/video/' + id + '?x=1' + pq();
+            $('dl').href = '/api/video/' + id + '?download=1' + pq();
+            setScreen('result');
+          } else if (j.status === 'error') {
+            clearInterval(timer);
+            setScreen('form'); showErr(j.error || 'Something went wrong.'); check();
+          }
+        }).catch(function () {});
+    }, 3000);
+  }
+
+  $('again').addEventListener('click', function () { $('player').removeAttribute('src'); setScreen('form'); check(); });
+  renderThumbs(); setScreen('form');
+})();
+</script>
+</body>
+</html>
